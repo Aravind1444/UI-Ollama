@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Brewery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .chat-bubble {
+            position: relative;
+            max-width: 80%;
+            padding: 15px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .chat-bubble:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .user-bubble {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 0;
+        }
+
+        .assistant-bubble {
+            background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+            color: #1f2937;
+            margin-right: auto;
+            border-bottom-left-radius: 0;
+        }
+
+        .chat-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            width: 20px;
+            height: 20px;
+        }
+
+        .user-bubble::after {
+            right: -10px;
+            border-left: 10px solid #8b5cf6;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+        }
+
+        .assistant-bubble::after {
+            left: -10px;
+            border-right: 10px solid #d1d5db;
+            border-left: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .input-gradient {
+            background: linear-gradient(135deg, #e6e9f0 0%, #eef1f5 100%);
+        }
+
+        @keyframes brew {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .brewing {
+            animation: brew 1.5s infinite;
+        }
+
+        .assistant-bubble .markdown-content {
+            overflow-x: auto; 
+        }
+
+        .assistant-bubble .markdown-content pre {
+            background-color: #f3f4f6;
+            padding: 1em;
+            border-radius: 5px;
+            margin: 0.5em 0;
+        }
+
+        .assistant-bubble .markdown-content code {
+            background-color: #e5e7eb;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+        }
+
+        .assistant-bubble .markdown-content ul, 
+        .assistant-bubble .markdown-content ol {
+            margin-left: 1.5em;
+        }
+
+        .assistant-bubble .markdown-content table {
+            border-collapse: collapse;
+            margin: 1em 0;
+        }
+
+        .assistant-bubble .markdown-content th, 
+        .assistant-bubble .markdown-content td {
+            border: 1px solid #d1d5db;
+            padding: 0.5em;
+        }
+
+        .assistant-bubble .markdown-content blockquote {
+            border-left: 4px solid #9ca3af;
+            padding-left: 1em;
+            margin: 1em 0;
+            color: #4b5563;
+        }
+
+        .copy-btn {
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            cursor: pointer;
+        }
+
+        /* Updated styles for scrollable chat area */
+        .chat-area-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #chatArea {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Sidebar -->
+        <div class="w-64 bg-white shadow-lg flex flex-col">
+            <div class="p-6 gradient-bg">
+                <h1 class="text-2xl font-bold text-white">LLM Brewery</h1>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar" id="chatList">
+                <!-- Chat list will be populated here -->
+            </div>
+            <div class="p-4 border-t">
+                <button id="newChatBtn" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105">
+                    New Chat
+                </button>
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="flex-1 flex flex-col bg-gray-50 overflow-hidden">
+            <!-- Chat area with container -->
+            <div class="chat-area-container flex-1">
+                <div id="chatArea" class="custom-scrollbar">
+                    <!-- Chat messages will be inserted here -->
+                </div>
+
+                <!-- Brewing message -->
+                <div id="brewingMessage" class="hidden text-center text-sm text-gray-500 py-2 brewing">
+                    Your response is brewing...
+                </div>
+            </div>
+
+            <!-- Input area (now outside the chat-area-container) -->
+            <div class="p-4 bg-white shadow-lg">
+                <div class="flex items-center input-gradient rounded-lg p-2">
+                    <input id="userInput" type="text" class="flex-1 bg-transparent border-none rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Type your message...">
+                    <button id="sendBtn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg ml-2 transition duration-300 ease-in-out transform hover:scale-105">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // The JavaScript remains unchanged
+        const chatArea = document.getElementById('chatArea');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const newChatBtn = document.getElementById('newChatBtn');
+        const chatList = document.getElementById('chatList');
+        const brewingMessage = document.getElementById('brewingMessage');
+
+        let currentChatId = null;
+        let chats = JSON.parse(localStorage.getItem('chats')) || {};
+
+        function generateUniqueId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function addMessage(role, content, isStreaming = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-bubble ${role === 'user' ? 'user-bubble' : 'assistant-bubble'}`;
+            
+            if (role === 'assistant') {
+                const formattedContent = marked.parse(content);
+                messageDiv.innerHTML = `
+                    <div class="markdown-content">${formattedContent}</div>
+                    <button class="copy-btn mt-2 text-sm text-blue-500 hover:text-blue-700">${!isStreaming ? 'Copy' : ''}</button>
+                `;
+                
+                if (!isStreaming) {
+                    const copyBtn = messageDiv.querySelector('.copy-btn');
+                    copyBtn.addEventListener('click', () => {
+                        navigator.clipboard.writeText(content).then(() => {
+                            copyBtn.textContent = 'Copied!';
+                            setTimeout(() => {
+                                copyBtn.textContent = 'Copy';
+                            }, 2000);
+                        });
+                    });
+                }
+            } else {
+                messageDiv.innerHTML = `<p class="text-sm">${content}</p>`;
+            }
+            
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function updateChatList() {
+            chatList.innerHTML = '';
+            Object.keys(chats).forEach(chatId => {
+                const chatDiv = document.createElement('div');
+                chatDiv.className = 'p-4 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
+                chatDiv.innerHTML = `
+                    <span class="text-sm text-gray-700 truncate">${chats[chatId][0].content.substring(0, 20)}...</span>
+                    <button class="delete-chat text-red-500 hover:text-red-700" data-chat-id="${chatId}">×</button>
+                `;
+                chatDiv.addEventListener('click', () => loadChat(chatId));
+                chatList.appendChild(chatDiv);
+            });
+        }
+
+        function loadChat(chatId) {
+            currentChatId = chatId;
+            chatArea.innerHTML = '';
+            if (chats[chatId]) {
+                chats[chatId].forEach(message => addMessage(message.role, message.content));
+            }
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            if (!currentChatId) {
+                currentChatId = generateUniqueId();
+                chats[currentChatId] = [];
+            }
+
+            addMessage('user', message);
+            userInput.value = '';
+            brewingMessage.classList.remove('hidden');
+
+            try {
+                chats[currentChatId].push({ role: 'user', content: message });
+
+                const response = await fetch('http://localhost:11434/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'llama3',
+                        messages: chats[currentChatId],
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let assistantMessage = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.trim() !== '') {
+                            const parsedLine = JSON.parse(line);
+                            if (parsedLine.message && parsedLine.message.content) {
+                                assistantMessage += parsedLine.message.content;
+                                updateAssistantMessage(assistantMessage, true);
+                            }
+                        }
+                    }
+                }
+
+                updateAssistantMessage(assistantMessage, false);
+
+                chats[currentChatId].push({ role: 'assistant', content: assistantMessage });
+                localStorage.setItem('chats', JSON.stringify(chats));
+                updateChatList();
+
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('assistant', 'Sorry, an error occurred while processing your request.');
+            } finally {
+                brewingMessage.classList.add('hidden');
+            }
+        }
+
+        function updateAssistantMessage(content, isStreaming) {
+            const lastMessage = chatArea.lastElementChild;
+            if (lastMessage && lastMessage.classList.contains('assistant-bubble')) {
+                lastMessage.remove();
+            }
+            addMessage('assistant', content, isStreaming);
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        newChatBtn.addEventListener('click', () => {
+            currentChatId = generateUniqueId();
+            chats[currentChatId] = [];
+            chatArea.innerHTML = '';
+            updateChatList();
+        });
+
+        chatList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-chat')) {
+                const chatId = e.target.getAttribute('data-chat-id');
+                delete chats[chatId];
+                localStorage.setItem('chats', JSON.stringify(chats));
+                updateChatList();
+                if (currentChatId === chatId) {
+                    currentChatId = null;
+                    chatArea.innerHTML = '';
+                }
+                e.stopPropagation();
+            }
+        });
+
+        updateChatList();
+    </script>
+</body>
+</html>
