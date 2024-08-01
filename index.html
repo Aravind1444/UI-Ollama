@@ -200,7 +200,6 @@
     </div>
 
     <script>
-        // The JavaScript remains unchanged
         const chatArea = document.getElementById('chatArea');
         const userInput = document.getElementById('userInput');
         const sendBtn = document.getElementById('sendBtn');
@@ -287,6 +286,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
                     },
                     body: JSON.stringify({
                         model: 'llama3',
